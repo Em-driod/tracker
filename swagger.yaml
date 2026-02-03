@@ -1,0 +1,358 @@
+openapi: 3.0.0
+info:
+  title: Tracker API
+  version: 1.0.0
+  description: API documentation for the Tracker application, including authentication and user management.
+servers:
+  - url: http://localhost:3000/api
+    description: Local Development Server
+tags:
+  - name: Authentication
+    description: User authentication and authorization operations
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUser'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User registered successfully
+        '400':
+          description: Invalid input or user already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/login:
+    post:
+      summary: Log in a user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginUser'
+      responses:
+        '200':
+          description: Login successful, returns a JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Login successful
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/forgot-password:
+    post:
+      summary: Request password reset OTP
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        '200':
+          description: If a user with that email exists, an OTP has been sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: If a user with that email exists, an OTP has been sent.
+        '400':
+          description: Invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/verify-otp:
+    post:
+      summary: Verify OTP and get a reset token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtp'
+      responses:
+        '200':
+          description: OTP verified, returns a reset token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resetToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          description: Invalid OTP, expired OTP, or invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/reset-password:
+    post:
+      summary: Reset user password
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPassword'
+      responses:
+        '200':
+          description: Password has been reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Password has been reset successfully
+        '400':
+          description: Invalid or expired reset token, or invalid password format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/biometric-setup:
+    post:
+      summary: Enable biometric authentication for the user
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: No request body needed.
+      responses:
+        '200':
+          description: Biometric authentication enabled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Biometric authentication enabled successfully
+        '401':
+          description: Authentication error (missing or invalid token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/biometric-login:
+    post:
+      summary: Log in user using biometric credentials
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier:
+                  type: string
+                  example: user@example.com
+      responses:
+        '200':
+          description: Biometric login successful, returns a JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '403':
+          description: Biometric login not available (user not found or biometric not enabled)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterUser:
+      type: object
+      required:
+        - fullName
+        - email
+        - dob
+        - password
+        - username
+      properties:
+        fullName:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        dob:
+          type: string
+          format: date
+          example: 1990-01-01
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: password123
+        username:
+          type: string
+          example: johndoe
+    LoginUser:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+          description: User's email or username
+          example: johndoe
+        password:
+          type: string
+          format: password
+          example: password123
+    VerifyOtp:
+      type: object
+      required:
+        - email
+        - otp
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        otp:
+          type: string
+          example: "123456"
+    ResetPassword:
+      type: object
+      required:
+        - resetToken
+        - newPassword
+      properties:
+        resetToken:
+          type: string
+          description: JWT token obtained from /verify-otp
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          example: newStrongPassword123
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Error message"
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: array
+                items:
+                  type: string
+              message:
+                type: string
