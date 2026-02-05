@@ -7,9 +7,9 @@ const router = Router();
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/forgot-password', authController.forgotPassword);
-router.post('/verify-otp', authController.verifyOtp);
-router.post('/verify-registration-otp', authController.verifyRegistrationOtp);
-router.post('/verify-login-otp', authController.verifyLoginOtp);
+router.post('/verify-registration', authController.verifyRegistrationOtp);
+router.post('/verify-login', authController.verifyLoginOtp);
+router.post('/verify-reset-otp', authController.verifyOtp);
 router.post('/reset-password', authController.resetPassword);
 
 router.post('/webauthn/register/init', authController.initWebAuthnRegistration);

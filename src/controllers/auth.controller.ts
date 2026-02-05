@@ -18,8 +18,12 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  identifier: z.string(),
+  email: z.string().optional(),
+  identifier: z.string().optional(),
   password: z.string(),
+}).refine(data => data.email || data.identifier, {
+  message: "Either email or identifier is required",
+  path: ["identifier"]
 });
 
 const forgotPasswordSchema = z.object({
@@ -37,8 +41,12 @@ const verifyRegistrationOtpSchema = z.object({
 });
 
 const resetPasswordSchema = z.object({
-  resetToken: z.string(),
+  email: z.string().email().optional(),
+  otp: z.string().optional(),
+  resetToken: z.string().optional(),
   newPassword: z.string().min(8, { message: "Password must be at least 8 characters long" }),
+}).refine(data => data.resetToken || (data.email && data.otp), {
+  message: "Either resetToken or both email and otp are required",
 });
 
 const verifyLoginOtpSchema = z.object({
@@ -52,7 +60,7 @@ const initWebAuthnRegistrationSchema = z.object({
 
 const completeWebAuthnRegistrationSchema = z.object({
   email: z.string().email(),
-  attestationResponse: z.object({
+  credential: z.object({
     id: z.string(),
     rawId: z.string(),
     response: z.object({
@@ -70,8 +78,8 @@ const initWebAuthnLoginSchema = z.object({
 });
 
 const completeWebAuthnLoginSchema = z.object({
-  identifier: z.string(),
-  assertionResponse: z.object({
+  identifier: z.string().optional(),
+  credential: z.object({
     id: z.string(),
     rawId: z.string(),
     response: z.object({
@@ -149,7 +157,8 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { identifier, password } = loginSchema.parse(req.body);
+    const { email, identifier: bodyIdentifier, password } = loginSchema.parse(req.body);
+    const identifier = bodyIdentifier || email;
 
     const user = await User.findOne({
       $or: [{ email: identifier }, { username: identifier }],
@@ -275,19 +284,39 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { resetToken, newPassword } = resetPasswordSchema.parse(req.body);
+    const { resetToken, email, otp, newPassword } = resetPasswordSchema.parse(req.body);
 
     const passwordStrength = checkPasswordStrength(newPassword);
     if (passwordStrength === 'weak') {
       return res.status(400).json({ message: 'Password is too weak. Please include uppercase, lowercase, numbers, and symbols.' });
     }
 
-    const decoded = verifyToken(resetToken);
+    let userId: string;
 
-    if (!decoded) return res.status(400).json({ message: 'Invalid or expired reset token' });
+    if (resetToken) {
+      const decoded = verifyToken(resetToken);
+      if (!decoded) return res.status(400).json({ message: 'Invalid or expired reset token' });
+      userId = (decoded as any).userId;
+    } else if (email && otp) {
+      const user = await User.findOne({ email });
+      if (!user) return res.status(400).json({ message: 'Invalid OTP or email' });
+
+      const otpRecord = await Otp.findOne({ userId: user._id, type: 'RESET' });
+      if (!otpRecord || new Date() > otpRecord.expiresAt) {
+        return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
+
+      const isOtpValid = await comparePassword(otp, otpRecord.code);
+      if (!isOtpValid) return res.status(400).json({ message: 'Invalid OTP' });
+
+      userId = user._id.toString();
+      await Otp.deleteOne({ _id: otpRecord._id });
+    } else {
+      return res.status(400).json({ message: 'Insufficient data for password reset' });
+    }
 
     const hashedPassword = await hashPassword(newPassword);
-    await User.findByIdAndUpdate((decoded as any).userId, { password: hashedPassword });
+    await User.findByIdAndUpdate(userId, { password: hashedPassword });
 
     res.json({ message: 'Password has been reset successfully' });
   } catch (error) {
@@ -413,7 +442,7 @@ export const initWebAuthnRegistration = async (req: Request, res: Response) => {
 
 export const completeWebAuthnRegistration = async (req: Request, res: Response) => {
   try {
-    const { email, attestationResponse } = completeWebAuthnRegistrationSchema.parse(req.body);
+    const { email, credential } = completeWebAuthnRegistrationSchema.parse(req.body);
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -432,12 +461,12 @@ export const completeWebAuthnRegistration = async (req: Request, res: Response) 
 
     // Convert string fields to Buffer as required by fido2-lib
     const convertedAttestationResponse = {
-      ...attestationResponse,
-      id: Buffer.from(attestationResponse.id, 'base64url'),
-      rawId: Buffer.from(attestationResponse.rawId, 'base64url'),
+      ...credential,
+      id: Buffer.from(credential.id, 'base64url'),
+      rawId: Buffer.from(credential.rawId, 'base64url'),
       response: {
-        attestationObject: Buffer.from(attestationResponse.response.attestationObject, 'base64url'),
-        clientDataJSON: Buffer.from(attestationResponse.response.clientDataJSON, 'base64url'),
+        attestationObject: Buffer.from(credential.response.attestationObject, 'base64url'),
+        clientDataJSON: Buffer.from(credential.response.clientDataJSON, 'base64url'),
       },
     };
 
@@ -525,7 +554,8 @@ export const initWebAuthnLogin = async (req: Request, res: Response) => {
 
 export const completeWebAuthnLogin = async (req: Request, res: Response) => {
   try {
-    const { identifier, assertionResponse } = completeWebAuthnLoginSchema.parse(req.body);
+    const { identifier: bodyIdentifier, credential } = completeWebAuthnLoginSchema.parse(req.body);
+    const identifier = bodyIdentifier || (req as any).user?.email; // Fallback if needed, though login usually has it
 
     const user = await User.findOne({ $or: [{ email: identifier }, { username: identifier }] });
     if (!user) {
@@ -542,7 +572,7 @@ export const completeWebAuthnLogin = async (req: Request, res: Response) => {
 
     // Find the credential used for this assertion
     const authenticator = user.webauthn_credentials.find(
-      (cred) => cred.credID.toString('base64url') === assertionResponse.rawId
+      (cred) => cred.credID.toString('base64url') === credential.rawId
     );
 
     if (!authenticator) {
@@ -559,14 +589,14 @@ export const completeWebAuthnLogin = async (req: Request, res: Response) => {
     };
 
     const convertedAssertionResponse = {
-      ...assertionResponse,
-      id: Buffer.from(assertionResponse.id, 'base64url'),
-      rawId: Buffer.from(assertionResponse.rawId, 'base64url'),
+      ...credential,
+      id: Buffer.from(credential.id, 'base64url'),
+      rawId: Buffer.from(credential.rawId, 'base64url'),
       response: {
-        authenticatorData: Buffer.from(assertionResponse.response.authenticatorData, 'base64url'),
-        clientDataJSON: Buffer.from(assertionResponse.response.clientDataJSON, 'base64url'),
-        signature: Buffer.from(assertionResponse.response.signature, 'base64url'),
-        userHandle: assertionResponse.response.userHandle ? Buffer.from(assertionResponse.response.userHandle, 'base64url') : undefined,
+        authenticatorData: Buffer.from(credential.response.authenticatorData, 'base64url'),
+        clientDataJSON: Buffer.from(credential.response.clientDataJSON, 'base64url'),
+        signature: Buffer.from(credential.response.signature, 'base64url'),
+        userHandle: credential.response.userHandle ? Buffer.from(credential.response.userHandle, 'base64url') : undefined,
       },
     };
 
