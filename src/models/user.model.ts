@@ -43,7 +43,8 @@ export interface IUser extends Document {
   fullName: string;
   email: string;
   username: string;
-  dob: Date;
+  mobile?: string;
+  dateOfBirth: Date;
   password?: string;
   isVerified: boolean;
   lastActivityAt: Date;
@@ -58,7 +59,8 @@ const userSchema = new Schema<IUser>({
   fullName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   username: { type: String, required: true, unique: true },
-  dob: { type: Date, required: true },
+  mobile: { type: String, required: false },
+  dateOfBirth: { type: Date, required: true },
   password: { type: String, required: false },
   isVerified: { type: Boolean, default: false },
   lastActivityAt: { type: Date, default: Date.now },

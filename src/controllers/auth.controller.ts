@@ -12,9 +12,9 @@ import { config } from '../config';
 const registerSchema = z.object({
   fullName: z.string(),
   email: z.string().email(),
-  dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
+  dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters long" }),
-  username: z.string(),
+  mobile: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -90,18 +90,21 @@ const completeWebAuthnLoginSchema = z.object({
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, dob, password, username } = registerSchema.parse(req.body);
+    const { fullName, email, dateOfBirth: dobString, password, mobile } = registerSchema.parse(req.body);
 
     const passwordStrength = checkPasswordStrength(password);
     if (passwordStrength === 'weak') {
       return res.status(400).json({ message: 'Password is too weak. Please include uppercase, lowercase, numbers, and symbols.' });
     }
 
-    const dateOfBirth = new Date(dob);
+    const dateOfBirth = new Date(dobString);
     const age = new Date().getFullYear() - dateOfBirth.getFullYear();
     if (age < 13) {
       return res.status(400).json({ message: 'You must be at least 13 years old to register' });
     }
+
+    // Generate username from email if not provided (e.g., john@doe.com -> john_doe_123)
+    const username = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_') + '_' + Math.floor(Math.random() * 1000);
 
     const existingUser = await User.findOne({
       $or: [{ email }, { username }],
@@ -117,7 +120,8 @@ export const register = async (req: Request, res: Response) => {
       fullName,
       email,
       username,
-      dob: dateOfBirth,
+      mobile,
+      dateOfBirth,
       password: hashedPassword,
       isVerified: false, // Set isVerified to false initially
     });
