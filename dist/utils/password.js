@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.comparePassword = exports.hashPassword = void 0;
+exports.checkPasswordStrength = exports.comparePassword = exports.hashPassword = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const saltRounds = 10;
 const hashPassword = (password) => __awaiter(void 0, void 0, void 0, function* () {
@@ -23,3 +23,18 @@ const comparePassword = (password, hash) => __awaiter(void 0, void 0, void 0, fu
     return yield bcrypt_1.default.compare(password, hash);
 });
 exports.comparePassword = comparePassword;
+const checkPasswordStrength = (password) => {
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbolOrSpace = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?\s]/.test(password);
+    const strength = [hasLowerCase, hasUpperCase, hasNumber, hasSymbolOrSpace].filter(Boolean).length;
+    if (password.length < 8 || strength < 4) {
+        return 'weak';
+    }
+    if (password.length >= 12 && strength >= 4) {
+        return 'very strong';
+    }
+    return 'strong';
+};
+exports.checkPasswordStrength = checkPasswordStrength;

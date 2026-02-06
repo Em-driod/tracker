@@ -17,4 +17,9 @@ router.post('/webauthn/register/complete', authController.completeWebAuthnRegist
 router.post('/webauthn/login/init', authController.initWebAuthnLogin);
 router.post('/webauthn/login/complete', authController.completeWebAuthnLogin);
 
+router.post('/security/pin', authenticate, authController.changePin);
+router.post('/security/fingerprint', authenticate, authController.toggleFingerprint);
+router.post('/security/password', authenticate, authController.changePassword);
+router.post('/logout', authController.logout);
+
 export default router;

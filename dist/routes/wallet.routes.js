@@ -34,22 +34,11 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const authController = __importStar(require("../controllers/auth.controller"));
+const walletController = __importStar(require("../controllers/wallet.controller"));
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.post('/forgot-password', authController.forgotPassword);
-router.post('/verify-registration', authController.verifyRegistrationOtp);
-router.post('/verify-login', authController.verifyLoginOtp);
-router.post('/verify-reset-otp', authController.verifyOtp);
-router.post('/reset-password', authController.resetPassword);
-router.post('/webauthn/register/init', authController.initWebAuthnRegistration);
-router.post('/webauthn/register/complete', authController.completeWebAuthnRegistration);
-router.post('/webauthn/login/init', authController.initWebAuthnLogin);
-router.post('/webauthn/login/complete', authController.completeWebAuthnLogin);
-router.post('/security/pin', auth_1.authenticate, authController.changePin);
-router.post('/security/fingerprint', auth_1.authenticate, authController.toggleFingerprint);
-router.post('/security/password', auth_1.authenticate, authController.changePassword);
-router.post('/logout', authController.logout);
+router.get('/', auth_1.authenticate, walletController.getWallet);
+router.post('/fund', auth_1.authenticate, walletController.initiateFunding);
+router.post('/withdraw', auth_1.authenticate, walletController.withdraw);
+router.post('/webhook', walletController.handleWebhook); // Paystack webhook is public (verification inside)
 exports.default = router;

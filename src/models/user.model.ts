@@ -50,6 +50,14 @@ export interface IUser extends Document {
   lastActivityAt: Date;
   webauthn_credentials?: IWebAuthnCredential[];
   currentWebAuthnChallenge?: string;
+  profileImage?: string;
+  pin?: string;
+  isFingerprintEnabled?: boolean;
+  notificationSettings?: {
+    pushEnabled: boolean;
+    emailEnabled: boolean;
+  };
+  identificationImage?: string;
 }
 
 /**
@@ -75,7 +83,15 @@ const userSchema = new Schema<IUser>({
     attestationCert: { type: Buffer },
     userHandle: { type: Buffer },
   }],
-  currentWebAuthnChallenge: { type: String }
+  currentWebAuthnChallenge: { type: String },
+  profileImage: { type: String },
+  pin: { type: String },
+  isFingerprintEnabled: { type: Boolean, default: false },
+  notificationSettings: {
+    pushEnabled: { type: Boolean, default: true },
+    emailEnabled: { type: Boolean, default: true },
+  },
+  identificationImage: { type: String },
 });
 
 export const User = model<IUser>('User', userSchema);

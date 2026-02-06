@@ -8,6 +8,16 @@ import { generateOtp } from '../utils/otp';
 import { User, Otp, IUser, IOtp } from '../models/user.model';
 import { config } from '../config';
 
+const changePinSchema = z.object({
+  pin: z.string().length(4, { message: "PIN must be 4 digits" }).regex(/^\d+$/, { message: "PIN must contain only numbers" }),
+});
+
+const changePasswordSchema = z.object({
+  oldPassword: z.string(),
+  newPassword: z.string().min(8, { message: "Password must be at least 8 characters long" }),
+});
+
+
 // --- Validation Schemas ---
 const registerSchema = z.object({
   fullName: z.string(),
@@ -619,4 +629,70 @@ export const completeWebAuthnLogin = async (req: Request, res: Response) => {
     console.error(error);
     res.status(500).json({ message: 'Internal server error' });
   }
+};
+
+export const changePin = async (req: CustomRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { pin } = changePinSchema.parse(req.body);
+    const hashedPin = await hashPassword(pin);
+
+    await User.findByIdAndUpdate(userId, { pin: hashedPin });
+    res.status(200).json({ message: 'PIN updated successfully' });
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ message: error.issues });
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const toggleFingerprint = async (req: CustomRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { enabled } = req.body;
+
+    await User.findByIdAndUpdate(userId, { isFingerprintEnabled: !!enabled });
+    res.status(200).json({ message: `Fingerprint ${enabled ? 'enabled' : 'disabled'} successfully` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const changePassword = async (req: CustomRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const { oldPassword, newPassword } = changePasswordSchema.parse(req.body);
+
+    const user = await User.findById(userId);
+    if (!user || !user.password) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isPasswordValid = await comparePassword(oldPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid old password' });
+    }
+
+    const passwordStrength = checkPasswordStrength(newPassword);
+    if (passwordStrength === 'weak') {
+      return res.status(400).json({ message: 'New password is too weak.' });
+    }
+
+    const hashedNewPassword = await hashPassword(newPassword);
+    user.password = hashedNewPassword;
+    await user.save();
+
+    res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+    if (error instanceof z.ZodError) return res.status(400).json({ message: error.issues });
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  // In a JWT setup without blacklisting, logout is usually handled on the client side by deleting the token.
+  // We can return a success message here.
+  res.status(200).json({ message: 'Logout successful' });
 };
