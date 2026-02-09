@@ -13,7 +13,11 @@ const port = process.env.PORT || 3000; // Use env variable
 
 // 1. Security & Parsing Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 
 // 2. Documentation
