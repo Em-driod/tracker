@@ -359,14 +359,21 @@ export const verifyRegistrationOtp = async (req: Request, res: Response) => {
     const isOtpValid = await comparePassword(otp, otpRecord.code);
     if (!isOtpValid) return res.status(400).json({ message: 'Invalid OTP' });
 
-    // Mark user as verified
+    // Mark user as verified and update last activity
     user.isVerified = true;
+    user.lastActivityAt = new Date();
     await user.save();
 
     // Cleanup OTP
     await Otp.deleteOne({ _id: otpRecord._id });
 
-    res.status(200).json({ message: 'Email verified successfully! You can now log in.' });
+    // Generate authentication token for auto-login
+    const token = generateToken({ userId: user._id.toString() }, '1h');
+
+    res.status(200).json({
+      message: 'Email verified successfully! You are now logged in.',
+      token
+    });
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ message: error.issues });
     console.error(error);
