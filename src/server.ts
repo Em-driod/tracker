@@ -2,8 +2,8 @@ import 'dotenv/config';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors'; // npm install cors
 import helmet from 'helmet'; // npm install helmet
-import routes from './src/routes';
-import connectDB from './src/config/database';
+import routes from './routes';
+import connectDB from './config/database';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import path from 'path';
