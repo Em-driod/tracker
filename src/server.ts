@@ -21,8 +21,10 @@ app.use(cors({
 app.use(express.json());
 
 // 2. Documentation
-const swaggerDocument = YAML.load(path.join(__dirname, './swagger.yaml'));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+const swaggerDocument = YAML.load(
+  path.resolve(process.cwd(), 'swagger.yaml')
+);
+
 
 // 3. Routes
 app.use('/api', routes);
