@@ -8,13 +8,11 @@ export const apiRequest = async (url: string, options: RequestInit = {}) => {
   // you'll need to update this line.
   const token = localStorage.getItem('authToken');
 
-  const headers: HeadersInit = {
-    ...options.headers,
-    'Content-Type': 'application/json',
-  };
+  const headers = new Headers(options.headers);
+  headers.set('Content-Type', 'application/json');
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
   const res = await fetch(url, {
